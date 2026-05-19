@@ -10,6 +10,7 @@ use crate::User;
 pub enum Msg {
     HandleMsg(String),
     SubmitMessage,
+    ToggleTheme,
 }
 
 #[derive(Deserialize)]
@@ -45,6 +46,7 @@ pub struct Chat {
     chat_input: NodeRef,
     wss: WebsocketService,
     messages: Vec<MessageData>,
+    is_dark: bool,
     _producer: Box<dyn Bridge<EventBus>>,
 }
 
@@ -80,6 +82,7 @@ impl Component for Chat {
             messages: vec![],
             chat_input: NodeRef::default(),
             wss,
+            is_dark: false,
             _producer: EventBus::bridge(ctx.link().callback(Msg::HandleMsg)),
         }
     }
@@ -134,14 +137,39 @@ impl Component for Chat {
                 }
                 false
             }
+            Msg::ToggleTheme => {
+                self.is_dark = !self.is_dark;
+                true
+            }
         }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let submit = ctx.link().callback(|_| Msg::SubmitMessage);
+        let toggle_theme = ctx.link().callback(|_| Msg::ToggleTheme);
+        let root_class = if self.is_dark {
+            "flex w-screen bg-gray-900 text-white"
+        } else {
+            "flex w-screen bg-white text-gray-900"
+        };
+        let sidebar_class = if self.is_dark {
+            "flex-none w-56 h-screen bg-gray-800"
+        } else {
+            "flex-none w-56 h-screen bg-gray-100"
+        };
+        let chat_panel_class = if self.is_dark {
+            "w-full grow overflow-auto border-b-2 border-gray-700"
+        } else {
+            "w-full grow overflow-auto border-b-2 border-gray-300"
+        };
+        let input_class = if self.is_dark {
+            "block w-full py-2 pl-4 mx-3 bg-gray-800 text-white rounded-full outline-none focus:text-white"
+        } else {
+            "block w-full py-2 pl-4 mx-3 bg-gray-100 rounded-full outline-none focus:text-gray-700"
+        };
         html! {
-            <div class="flex w-screen">
-                <div class="flex-none w-56 h-screen bg-gray-100">
+            <div class={root_class}>
+                <div class={sidebar_class}>
                     <div class="text-xl p-3">{"Users"}</div>
                     {
                         self.users.clone().iter().map(|u| {
@@ -165,9 +193,17 @@ impl Component for Chat {
                 </div>
                 <div class="grow h-screen flex flex-col">
                     <div class="w-full h-14 border-b-2 border-gray-300">
-                        <div class="text-xl p-3">{"💬 Chat!"}</div>
+                        <div class="text-xl p-3 flex items-center justify-between">
+                            <span>{"💬 Chat!"}</span>
+                            <button
+                                onclick={toggle_theme}
+                                class="text-xs px-3 py-1 rounded-full border border-gray-300"
+                            >
+                                {"Ganti tema"}
+                            </button>
+                        </div>
                     </div>
-                    <div class="w-full grow overflow-auto border-b-2 border-gray-300">
+                    <div class={chat_panel_class}>
                         {
                             self.messages.iter().map(|m| {
                                 let user = self.users.iter().find(|u| u.name == m.from).unwrap();
@@ -196,7 +232,7 @@ impl Component for Chat {
                             ref={self.chat_input.clone()}
                             type="text"
                             placeholder="Message"
-                            class="block w-full py-2 pl-4 mx-3 bg-gray-100 rounded-full outline-none focus:text-gray-700"
+                            class={input_class}
                         />
                         <button
                             onclick={submit}
